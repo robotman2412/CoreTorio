@@ -65,6 +65,10 @@ struct InjectionCtx {
 // Code flow graph instruction.
 struct CodeFlowInsn {
     enum Type {
+        // Tail call.
+        TAILCALL,
+        // Return.
+        RETURN,
         // Function call.
         CALL,
         // Unconditional jump.
@@ -75,48 +79,65 @@ struct CodeFlowInsn {
         OTHER,
     };
 
+    // Type of this instruction.
+    Type   type;
     // Start address of this instruction.
     size_t addr;
     // Length in bytes.
     size_t length;
+
+    bool isEndOfFunction() const {
+        return type == TAILCALL || type == RETURN;
+    }
 };
 
 // Code flow graph.
-template <typename InsnType, typename std::enable_if<std::is_base_of<CodeFlowInsn, InsnType>::value>::type * = nullptr>
-struct CodeFlowGraph {
+template <typename InsnType> struct CodeFlowGraph {
     struct Node : InsnType {
         // Next instruction after this one.
-        InsnType    *next;
+        size_t      next;
         // Branching instruction after this one.
-        InsnType    *branch;
+        size_t      branch;
         // Analyze code and create a new node.
-        static Node *analyze(size_t startAddress);
+        static Node analyze(size_t startAddress);
     };
 
     // Start point of the graph.
-    Node                    *start;
+    size_t                 startAddress;
     // Unordered set of instructions.
-    std::map<size_t, Node *> insns;
+    std::map<size_t, Node> insns;
 
     // Create a code flow graph by analyzing code.
     static CodeFlowGraph analyze(size_t startAddress) {
         CodeFlowGraph graph;
-        graph.start = graph.getNodeAt(startAddress);
+        graph.startAddress = startAddress;
+        std::vector<size_t> toAnalyze;
+        toAnalyze.push_back(startAddress);
+
+        for (int i = 0; i < 200 && toAnalyze.size(); i++) {
+            size_t addr = toAnalyze.back();
+            toAnalyze.pop_back();
+            Node &node = graph.insns[addr];
+            if (node.addr == addr) {
+                continue;
+            }
+            node = Node::analyze(addr);
+            if (node.next) {
+                toAnalyze.push_back(node.next);
+            }
+            if (node.branch) {
+                toAnalyze.push_back(node.branch);
+            }
+        }
+
         return graph;
     }
 
-    // Clean up the thing.
-    ~CodeFlowGraph() {
-        for (auto &pair : insns) {
-            delete pair->second;
-        }
-    }
-    CodeFlowGraph(CodeFlowGraph<InsnType> const &) = delete;
-
     // Get the node that starts at a certain address.
-    Node *getNodeAt(size_t startAddress) {
+    Node &getNodeAt(size_t startAddress) {
         if (insns.find(startAddress) == insns.end()) {
-            Node *node = Node::analyze(startAddress);
+            size_t jumpAddr = 0;
+            Node  *node     = Node::analyze(startAddress, jumpAddr);
             insns.emplace(startAddress, node);
             return node;
         } else {

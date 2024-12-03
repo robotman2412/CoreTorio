@@ -22,6 +22,7 @@ static std::map<std::string, InjectionSite> *injectionSites;
 // Initialize the injection sub-system.
 void init() {
     injectionSites = new std::map<std::string, InjectionSite>();
+    allowInjection = true;
 }
 
 // Inject the code now.

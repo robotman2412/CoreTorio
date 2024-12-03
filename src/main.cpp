@@ -27,7 +27,7 @@ CONSTRUCTOR static void entrypoint() {
     printf("Loading coremods...\n");
 
     // Test: Let's do something on the `AboutGui()` constructor.
-    injection::injectBefore("_ZN8AboutGuiC2Ev", myInjectedFunction);
+    injection::injectBefore("_ZN8AboutGuiC1Ev", myInjectedFunction);
 
     // Perform the injections and see what happens.
     if (injection::performInjections()) {
@@ -35,6 +35,8 @@ CONSTRUCTOR static void entrypoint() {
     } else {
         printf("CoreTorio failed, no mods were loaded.\n");
     }
+
+    _exit(0);
 }
 
 } // namespace coretorio::main
