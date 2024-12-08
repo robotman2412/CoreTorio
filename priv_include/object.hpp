@@ -26,7 +26,7 @@ struct Symbol : public Elf64_Sym {
     void       *st_value_ptr;
 };
 
-// Find a symbol.
+// Find a symbol by name.
 Symbol *findSymbol(std::string const &name);
 
 // Interpret the ELF file and determine the locations of sections and symbols.

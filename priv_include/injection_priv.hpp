@@ -99,7 +99,7 @@ template <typename InsnType> struct CodeFlowGraph {
         // Branching instruction after this one.
         size_t      branch;
         // Analyze code and create a new node.
-        static Node analyze(size_t startAddress);
+        static Node analyze(size_t startAddress, size_t maxLength);
     };
 
     // Start point of the graph.
@@ -108,25 +108,30 @@ template <typename InsnType> struct CodeFlowGraph {
     std::map<size_t, Node> insns;
 
     // Create a code flow graph by analyzing code.
-    static CodeFlowGraph analyze(size_t startAddress) {
+    static CodeFlowGraph analyze(Symbol const &symbol) {
         CodeFlowGraph graph;
-        graph.startAddress = startAddress;
+        graph.startAddress = (size_t)symbol.st_value_ptr;
         std::vector<size_t> toAnalyze;
-        toAnalyze.push_back(startAddress);
+        toAnalyze.push_back(graph.startAddress);
 
-        for (int i = 0; i < 200 && toAnalyze.size(); i++) {
+        for (int i = 0; i < 400 && toAnalyze.size(); i++) {
             size_t addr = toAnalyze.back();
             toAnalyze.pop_back();
             Node &node = graph.insns[addr];
             if (node.addr == addr) {
                 continue;
             }
-            node = Node::analyze(addr);
-            if (node.next) {
-                toAnalyze.push_back(node.next);
+            node = Node::analyze(addr, symbol.st_size - addr + graph.startAddress);
+            if (node.type == InsnType::Type::JUMP
+                && (node.addr < graph.startAddress || node.addr >= graph.startAddress + symbol.st_size)) {
+                node.type = InsnType::Type::TAILCALL;
+                printf("Tailcall\n");
             }
-            if (node.branch) {
+            if (node.type == InsnType::Type::BRANCH) {
                 toAnalyze.push_back(node.branch);
+            }
+            if (node.type != InsnType::Type::RETURN && node.type != InsnType::Type::TAILCALL) {
+                toAnalyze.push_back(node.next);
             }
         }
 
